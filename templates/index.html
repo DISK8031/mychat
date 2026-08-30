@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极简聊天室</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .chat-box { width: 400px; max-width: 95vw; height: 600px; max-height: 90vh; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; }
+        .header { padding: 16px; background: #4a90d9; color: #fff; font-size: 18px; font-weight: bold; text-align: center; }
+        #messages { flex: 1; overflow-y: auto; padding: 16px; }
+        .msg { background: #e8f0fe; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; word-break: break-word; font-size: 14px; }
+        .form { display: flex; padding: 12px; border-top: 1px solid #eee; }
+        .form input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 6px; outline: none; font-size: 14px; }
+        .form button { margin-left: 8px; padding: 10px 20px; background: #4a90d9; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .form button:hover { background: #3a7bc8; }
+    </style>
+</head>
+<body>
+    <div class="chat-box">
+        <div class="header">💬 极简聊天室</div>
+        <div id="messages"></div>
+        <form class="form" id="chatForm">
+            <input id="msgInput" placeholder="输入消息..." autocomplete="off">
+            <button type="submit">发送</button>
+        </form>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.js"></script>
+    <script>
+        var socket = io();
+        var form = document.getElementById('chatForm');
+        var msgInput = document.getElementById('msgInput');
+        var messagesDiv = document.getElementById('messages');
+        var shouldAutoScroll = true;
+        var isSoundUnlocked = false;
+
+        var audio = new Audio('/msg.mp3');
+        audio.preload = 'auto';
+
+        function unlockAudio() {
+            if (isSoundUnlocked) return;
+            var promise = audio.play();
+            if (promise !== undefined) {
+                promise.then(function() {
+                    isSoundUnlocked = true;
+                    audio.pause();
+                    audio.currentTime = 0;
+                }).catch(function(error) {});
+            }
+        }
+
+        msgInput.addEventListener('click', unlockAudio);
+        msgInput.addEventListener('focus', unlockAudio);
+
+        function playSound() {
+            if (!isSoundUnlocked) return;
+            audio.currentTime = 0;
+            audio.play().catch(function(e){});
+        }
+
+        messagesDiv.addEventListener('scroll', function() {
+            var isAtBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < 50;
+            shouldAutoScroll = isAtBottom;
+        });
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var msg = msgInput.value.trim();
+            if (msg) {
+                socket.emit('chat message', msg);
+                msgInput.value = '';
+                shouldAutoScroll = true;
+                unlockAudio();
+                playSound();
+            }
+        });
+
+        socket.on('chat message', function(msg) {
+            var item = document.createElement('div');
+            item.classList.add('msg', 'other');
+            item.textContent = msg;
+            messagesDiv.appendChild(item);
+            playSound();
+            if (shouldAutoScroll) {
+                setTimeout(function() { messagesDiv.scrollTop = messagesDiv.scrollHeight; }, 50);
+            }
+        });
+    </script>
+</body>
+</html>

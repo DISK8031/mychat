@@ -1,12 +1,15 @@
+# 核心修复：必须在导入任何其他包之前，导入 eventlet 并进行 monkey_patch
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO, send
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'my-secret-key'
 
-# 核心修改1：加上 cors_allowed_origins="*" 允许跨域
-# 核心修改2：加上 async_mode='threading' 兼容 Render 免费版环境
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# 核心修复：指定 async_mode='eventlet'，并允许跨域
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 @app.route('/')
 def index():
@@ -19,9 +22,8 @@ def sound():
 @socketio.on('chat message')
 def handle_message(msg):
     print('收到消息: ' + msg)
-    # broadcast=True 表示把消息广播给所有在线的人
     send(msg, broadcast=True)
 
-# 核心修改3：必须用 socketio.run，并加上 allow_unsafe_werkzeug=True
 if __name__ == '__main__':
+    # 核心修复：使用 socketio.run 启动，并加上 allow_unsafe_werkzeug=True
     socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
